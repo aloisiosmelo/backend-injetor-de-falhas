@@ -1,0 +1,20 @@
+[
+  {
+    "message": "Fault injection hardware..."
+  },
+  {
+    "message": "Fault injection script has been started."
+  },
+  {
+    "message": "Command executed: date '+# Start %b %d %H:%M:%S'."
+  },
+  {
+    "message": "Command executed."
+  },
+  {
+    "message": "# Start jan 17 22:44:10"
+  },
+  {
+    "message": "An unexpected error occurred. Details: {}."
+  }
+]

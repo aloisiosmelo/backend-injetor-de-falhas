@@ -1,0 +1,98 @@
+[
+  {
+    "message": "Fault injection hardware..."
+  },
+  {
+    "message": "Fault injection script has been started."
+  },
+  {
+    "message": "Command executed: date '+# Start %b %d %H:%M:%S'."
+  },
+  {
+    "message": "Command executed."
+  },
+  {
+    "message": "# Start jan 19 16:14:45"
+  },
+  {
+    "message": "(1) Time less than 20. Recalculating now."
+  },
+  {
+    "message": "(1) Time to failure: 40."
+  },
+  {
+    "message": "(1) Time to repair: 194."
+  },
+  {
+    "message": "(1) Waiting for fault time."
+  },
+  {
+    "message": "(1) Fault injected."
+  },
+  {
+    "message": "Command executed: date '+%b %d %H:%M:%S'."
+  },
+  {
+    "message": "Command executed."
+  },
+  {
+    "message": "(1) Fault 40 jan 19 16:15:26"
+  },
+  {
+    "message": "Command executed: sshpass -p 'luli27' ssh -tt aloisio@10.0.0.100 -o StrictHostKeyChecking=no PasswordAuthentication=yes \"echo 'luli27' | sudo -S rtcwake -m mem -s 194\"."
+  },
+  {
+    "message": "Fail to execute command. Details: Command executed: sshpass -p 'luli27' ssh -tt aloisio@10.0.0.100 -o StrictHostKeyChecking=no PasswordAuthentication=yes \"echo 'luli27' | sudo -S rtcwake -m mem -s 194\"."
+  },
+  {
+    "message": "Fail to execute command. Details: Console output: Command failed: sshpass -p 'luli27' ssh -tt aloisio@10.0.0.100 -o StrictHostKeyChecking=no PasswordAuthentication=yes \"echo 'luli27' | sudo -S rtcwake -m mem -s 194\"\nssh: connect to host 10.0.0.100 port 22: Connection timed out\r\n."
+  },
+  {
+    "message": "Fail to execute command. Details: Console output: ."
+  },
+  {
+    "message": "Fail to execute command. Details: Console output: {\"status\":255,\"signal\":null,\"output\":[null,\"\",\"ssh: connect to host 10.0.0.100 port 22: Connection timed out\\r\\n\"],\"pid\":70121,\"stdout\":\"\",\"stderr\":\"ssh: connect to host 10.0.0.100 port 22: Connection timed out\\r\\n\"}."
+  },
+  {
+    "message": "(1) Fail to establish ssh connection commands."
+  },
+  {
+    "message": "Command executed: date '+%b %d %H:%M:%S'."
+  },
+  {
+    "message": "Command executed."
+  },
+  {
+    "message": "(1) RepairHardware 194 jan 19 16:17:40"
+  },
+  {
+    "message": "(1) Repair injected."
+  },
+  {
+    "message": "(2) Time less than 20. Recalculating now."
+  },
+  {
+    "message": "(2) Time to failure: 40."
+  },
+  {
+    "message": "(2) Time to repair: 607."
+  },
+  {
+    "message": "(2) Waiting for fault time."
+  },
+  {
+    "message": "(2) Fault injected."
+  },
+  {
+    "message": "Command executed: date '+%b %d %H:%M:%S'."
+  },
+  {
+    "message": "Command executed."
+  },
+  {
+    "message": "(2) Fault 40 jan 19 16:18:20"
+  },
+  {
+    "message": "Command executed: sshpass -p 'luli27' ssh -tt aloisio@10.0.0.100 -o StrictHostKeyChecking=no PasswordAuthentication=yes \"echo 'luli27' | sudo -S rtcwake -m mem -s 607\"."
+  }
+]

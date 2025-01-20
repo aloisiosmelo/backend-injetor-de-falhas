@@ -1,0 +1,24 @@
+{
+  "name": "backend-injetor-de-falhas",
+  "version": "1.0.0",
+  "description": "Backend do injetor de falhas",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "falt",
+    "injector",
+    "nodejs",
+    "javascript",
+    "hardware",
+    "cloud"
+  ],
+  "author": "aloisiosmelo",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
+    "r-integration": "^2.4.0"
+  }
+}
