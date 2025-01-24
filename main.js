@@ -34,7 +34,7 @@ server.post('/api/injectors', (req, res) => {
 
     if (req?.body?.injectionType === 'Hardware') {
 
-      const content = [{ message: 'Fault injection hardware...' }]
+      const content = [{ message: 'Fault injection hardware started', time: functions.currentDateTimeFormated()}]
       const LOG_ID = functions.generateUniqueRandomSequence();
       fs.writeFileSync(`logs/${LOG_ID}.json`, JSON.stringify(content, null, 2), 'utf8');
   

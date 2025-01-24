@@ -10,10 +10,6 @@ const hardware = async (ip,
 
         functions.logId = logId
 
-        functions.logMessage("Fault injection script has been started.", 'INFO', 'SCRIPT_START')
-        const startTime = functions.runCommand("date '+# Start %b %d %H:%M:%S'");
-        if (startTime) functions.logMessage(startTime, 'INFO','LOG_EVENT');
-
         let C1 = 0;
 
         while (C1 < 50) {
@@ -32,38 +28,26 @@ const hardware = async (ip,
 
             while (TIMER < 20) {
                 functions.logMessage(`(${C1}) Time less than 20. Recalculating now.`, 'INFO', 'TIMER_GEN');
-                TIMER = parseInt(expRepairHW[0]);
+                let newExpRepairHW = R.executeRCommand("rexp(1, rate=0.006944444444444)");
+                TIMER = parseInt(newExpRepairHW[0]);
                 if (!TIMER) break;
             }
 
             functions.logMessage(`(${C1}) Time to failure: ${TIME}.`, 'INFO', 'TIMER_GENERATED');
             functions.logMessage(`(${C1}) Time to repair: ${TIMER}.`, 'INFO', 'TIMER_GENERATED');
+            functions.logMessage(`(${C1}) Trying to connect via ssh.`, 'INFO', 'SSH_CONNECTION_STARTUP');
 
-            functions.logMessage(`(${C1}) Waiting for fault time.`, 'INFO', 'WAIT_FAULT_TIME');
-            await new Promise(resolve => setTimeout(resolve, TIME * 1000));
+            const sshCommandForFault = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at now +${TIME * 1000} min <<<"echo ${sshPassword} | sudo -S ip link set ens33 down"'`;
+            const sshCommandForRepair = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at now +${TIME * 1000} min <<<"echo ${sshPassword} | sudo -S ip link set ens33 up"'`;
             
-            functions.logMessage(`(${C1}) Fault injected.`, 'INFO', 'FAULT_INJECTED');
-
-            const faultTime = functions.runCommand("date '+%b %d %H:%M:%S'");
-            if (faultTime) functions.logMessage(`(${C1}) Fault ${TIME} ${faultTime}`, 'INFO', 'LOG_EVENT');
-
-            const sshCommand = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes "echo '${sshPassword}' | sudo -S rtcwake -m mem -s ${TIMER}"`;
-            const sshResult = functions.runCommand(sshCommand);
-
-            if (sshResult === null) {
-                functions.logMessage(`(${C1}) Fail to establish ssh connection commands.`, 'ERROR', 'SSH_CONNECTION')
-            }
-
-            const repairTime = functions.runCommand("date '+%b %d %H:%M:%S'");
-            if (repairTime) functions.logMessage(`(${C1}) RepairHardware ${TIMER} ${repairTime}`, 'INFO', 'LOG_EVENT');
-
-            functions.logMessage(`(${C1}) Repair injected.`, 'INFO', 'REPAIR_INJECTED');
+            functions.runCommand(sshCommandForFault) ? functions.logMessage(`(${C1}) Fault injected.`, 'INFO', 'FAULT_INJECTED') : functions.logMessage(`(${C1}) Fail to establish ssh connection commands for fault injection.`, 'ERROR', 'SSH_CONNECTION');
+            functions.runCommand(sshCommandForRepair) ? functions.logMessage(`(${C1}) Repair injected.`, 'INFO', 'REPAIR_INJECTED') : functions.logMessage(`(${C1}) Fail to establish ssh connection commands for repair injection.`, 'ERROR', 'SSH_CONNECTION');
+            
+            functions.logMessage(`(${C1}) Finished current iteration.`, 'INFO', 'FINISHED_LOOP_SCRIPT');
         }
 
-        const endTime = functions.runCommand("date '+End %b %d %H:%M:%S'");
-        if (endTime) functions.logMessage(endTime);
-
         functions.logMessage(`(${C1}) Finished script.`, 'INFO', 'FINISHED_SCRIPT');
+
     } catch (error) {
         functions.logMessage(`An unexpected error occurred. Details: ${JSON.stringify(error)}.`, 'ERROR', 'UNEXPECTED_ERROR')
     }

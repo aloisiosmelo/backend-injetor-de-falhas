@@ -5,6 +5,28 @@ exports.logId = null
 
 exports.generateUniqueRandomSequence = () => Math.floor(Math.random() * Date.now())
 
+exports.currentDateTimeFormated = () => {
+
+    const checkZero = (data) => data.length == 1 ? data = "0" + data : data
+
+    var today = new Date();
+    var day = today.getDate() + "";
+    var month = (today.getMonth() + 1) + "";
+    var year = today.getFullYear() + "";
+    var hour = today.getHours() + "";
+    var minutes = today.getMinutes() + "";
+    var seconds = today.getSeconds() + "";
+
+    day = checkZero(day);
+    month = checkZero(month);
+    year = checkZero(year);
+    hour = checkZero(hour);
+    minutes = checkZero(minutes);
+    seconds = checkZero(seconds);
+
+    return(day + "/" + month + "/" + year + " " + hour + ":" + minutes + ":" + seconds);
+};
+
 exports.saveLogToFrontend = async (content) => {
 
     const filePath = `logs/${this.logId}.json`;
@@ -41,5 +63,5 @@ exports.runCommand = (command) => {
 
 exports.logMessage = (message, type = 'INFO', context = '') => {
     type === 'ERROR' ? console.error(`[error][${context}]: ${message}`) : console.log(`[info][${context}]: ${message}`)
-    this.saveLogToFrontend({ message: message })
+    this.saveLogToFrontend({ message: message, time: this.currentDateTimeFormated() })
 };
