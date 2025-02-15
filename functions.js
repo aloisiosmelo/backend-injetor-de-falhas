@@ -65,3 +65,23 @@ exports.logMessage = (message, type = 'INFO', context = '') => {
     type === 'ERROR' ? console.error(`[error][${context}]: ${message}`) : console.log(`[info][${context}]: ${message}`)
     this.saveLogToFrontend({ message: message, time: this.currentDateTimeFormated() })
 };
+
+exports.autoDetectNetworkInterfaceNames = async (sshUsername, sshPassword, ip) => {
+
+    const command = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes "ifconfig -a | sed 's/[ \t].*//;/^\(lo\|\)$/d'"`;
+
+    try {
+        const output = execSync(command, { encoding: 'utf-8' }).trim();
+        return {
+            status: 'success',
+            data: output.replace(/\s/g, '').split(':').filter((el)=> el != '' && el != 'lo'),
+        }
+    } catch (error) {
+
+        return {
+            status: 'fail',
+            data: { 'error': error.stderr }
+        };
+    }
+
+};
