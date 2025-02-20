@@ -45,8 +45,8 @@ const hardware = async (ip,
             functions.logMessage(`(${experimentCount}) Time to repair: ${TIMER_TO_REPAIR}.`, 'INFO', 'TIMER_TO_REPAIR_GENERATED');
             functions.logMessage(`(${experimentCount}) Trying to connect via ssh.`, 'INFO', 'SSH_CONNECTION_STARTUP');
 
-            const sshCommandForFault = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at now +${TIMER_TO_FAIL} min <<<"echo ${sshPassword} | sudo -S ip link set ${networkInterfaceId} down"'`;
-            const sshCommandForRepair = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at now +${TIMER_TO_REPAIR} min <<<"echo ${sshPassword} | sudo -S ip link set ${networkInterfaceId} up"'`;
+            const sshCommandForFault = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at -t ${functions.addMinuteToTimestamp(TIMER_TO_FAIL)} <<<"echo ${sshPassword} | sudo -S ip link set ${networkInterfaceId} down"'`;
+            const sshCommandForRepair = `sshpass -p '${sshPassword}' ssh -tt ${sshUsername}@${ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at -t ${functions.addMinuteToTimestamp(TIMER_TO_REPAIR)} <<<"echo ${sshPassword} | sudo -S ip link set ${networkInterfaceId} up"'`;
 
             functions.runCommand(sshCommandForFault) ? functions.logMessage(`(${experimentCount}) Fault injected.`, 'INFO', 'FAULT_INJECTED') : functions.logMessage(`(${experimentCount}) Fail to establish ssh connection commands for fault injection.`, 'ERROR', 'SSH_CONNECTION');
             functions.runCommand(sshCommandForRepair) ? functions.logMessage(`(${experimentCount}) Repair injected.`, 'INFO', 'REPAIR_INJECTED') : functions.logMessage(`(${experimentCount}) Fail to establish ssh connection commands for repair injection.`, 'ERROR', 'SSH_CONNECTION');

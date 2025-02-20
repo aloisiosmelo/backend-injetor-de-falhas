@@ -20,6 +20,7 @@
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "ping": "^0.4.4",
     "r-integration": "^2.4.0"
   }
 }

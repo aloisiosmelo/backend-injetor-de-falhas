@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
+const ping = require('ping');
 
 exports.logId = null
 
@@ -24,7 +25,7 @@ exports.currentDateTimeFormated = () => {
     minutes = checkZero(minutes);
     seconds = checkZero(seconds);
 
-    return(day + "/" + month + "/" + year + " " + hour + ":" + minutes + ":" + seconds);
+    return (day + "/" + month + "/" + year + " " + hour + ":" + minutes + ":" + seconds);
 };
 
 exports.saveLogToFrontend = async (content) => {
@@ -74,7 +75,7 @@ exports.autoDetectNetworkInterfaceNames = async (sshUsername, sshPassword, ip) =
         const output = execSync(command, { encoding: 'utf-8' }).trim();
         return {
             status: 'success',
-            data: output.replace(/\s/g, '').split(':').filter((el)=> el != '' && el != 'lo'),
+            data: output.replace(/\s/g, '').split(':').filter((el) => el != '' && el != 'lo'),
         }
     } catch (error) {
 
@@ -85,3 +86,21 @@ exports.autoDetectNetworkInterfaceNames = async (sshUsername, sshPassword, ip) =
     }
 
 };
+
+exports.addMinuteToTimestamp = (diff) => {
+    var oldDateObj = new Date();
+    var newDateNumber = oldDateObj.setMilliseconds(oldDateObj.getMilliseconds() + diff * 60000);
+    var newDateObj = new Date(newDateNumber);
+    return `${newDateObj.getFullYear()}${("0" + (newDateObj.getMonth() + 1)).slice(-2)}${("0" + newDateObj.getDate()).slice(-2)}${newDateObj.getHours()}${('0' + newDateObj.getMinutes()).slice(-2)}.${String(newDateObj.getSeconds()).padStart(2, '0')}`
+}
+
+exports.pingLoop = (hosts) => {
+    let status = true;
+    return new Promise(async function (resolve, reject) {
+        for (const host of hosts) {
+            const res = await ping.promise.probe(host);
+            if (!res.alive) { status = false; }
+        }
+        resolve(status);
+    });
+}

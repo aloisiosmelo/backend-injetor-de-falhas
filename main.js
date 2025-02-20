@@ -58,6 +58,7 @@ server.post('/api/injectors', async (req, res) => {
   let networkInterfaceIds = [req?.body?.networkInterfaceId];
 
   if (req?.body?.autoDetectNetworkInterfaceId) {
+    console.log('[info][START_SERVER] Trying to detect network interfaces')
     let interfaceIndentifierResp = await functions.autoDetectNetworkInterfaceNames(req?.body?.sshUsername, req?.body?.sshPassword, req?.body?.ip);
     if (interfaceIndentifierResp.status === 'success') {
       networkInterfaceIds = interfaceIndentifierResp.data;
@@ -108,5 +109,22 @@ server.get('/api/injectors/:log_id', function (req, res) {
   const data = fs.readFileSync(filePath, 'utf8');
 
   res.status(200).json(JSON.parse(data))
+
+})
+
+server.get('/api/ping/:ip', async (req, res) => {
+  if (!req?.params?.ip) {
+    return res.status(400).json({
+      status: 'error',
+      error: 'ip cannot be empty',
+    });
+  }
+
+  const status = await functions.pingLoop([req?.params?.ip]);
+
+  res.status(200).json({
+    status: 200,
+    server_status: status
+  })
 
 })
