@@ -5,11 +5,27 @@ const cors = require('cors')
 const functions = require('./functions')
 const injectors = require('./injectors')
 const server = express()
+const R = require('r-integration');
+
+const allowedOrigins = ['http://localhost:3000'];
 
 server.use(bp.json())
 server.use(bp.urlencoded({ extended: true }))
-server.use(cors({ origin: '*' }))
 server.listen(3030)
+
+server.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin 
+    // (like mobile apps or curl requests)
+    if (!origin) return callback(null, true); if (allowedOrigins.indexOf(origin) === -1) {
+      var msg = 'The CORS policy for this site does not ' +
+        'allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    } 
+    
+    return callback(null, true);
+  }
+}));
 
 console.log('[info][START_SERVER] Server start at port 3030')
 
@@ -72,28 +88,49 @@ server.post('/api/injectors', async (req, res) => {
 
   if (req?.body?.injectionType === 'Hardware') {
 
-    const content = [{ message: 'Fault injection hardware started', time: functions.currentDateTimeFormated() }]
-    const LOG_ID = functions.generateUniqueRandomSequence();
+    const timeToFailRate = 1 / parseInt(req.body.timeToFail);
+    const timeToRepairRate = 1 / parseInt(req.body.timeToRepair);
 
-    fs.writeFileSync(`logs/${LOG_ID}.json`, JSON.stringify(content, null, 2), 'utf8');
+    let experimentCount = 0;
 
-    res.status(200).json({
-      status: 200,
-      data: { log_id: LOG_ID }
-    })
+    while (experimentCount < req.body.experimentAttempts) {
+      experimentCount++;
 
-    networkInterfaceIds.map((networkInterfaceId) =>
-      injectors.hardware(
-        req.body.ip,
-        req.body.sshPassword,
-        req.body.sshUsername,
-        parseInt(req.body.experimentAttempts),
-        parseInt(req.body.timeToFail),
-        parseInt(req.body.timeToRepair),
-        networkInterfaceId,
-        LOG_ID
-      )
-    );
+      let expFailHW = R.executeRCommand(`rexp(1, rate=${timeToFailRate})`);
+      let expRepairHW = R.executeRCommand(`rexp(1, rate=${timeToRepairRate})`);
+
+      let TIMER_TO_FAIL = parseFloat(expFailHW[0]).toFixed(2);
+      let TIMER_TO_REPAIR = parseInt(expRepairHW[0]).toFixed(2);
+
+      if (isNaN(TIMER_TO_FAIL) || isNaN(TIMER_TO_REPAIR) || !TIMER_TO_FAIL || !TIMER_TO_REPAIR) {
+        functions.logMessage(`(${experimentCount}) Invalid time. Details: TIME=${TIMER_TO_FAIL} TIMER_TO_REPAIR=${TIMER_TO_REPAIR}`, 'ERROR', 'TIMER_TO_REPAIR_GEN_PARSE');
+        continue;
+      }
+
+      let TIME_TO_FAIL = functions.addMinuteToTimestamp(TIMER_TO_FAIL)
+      let TIME_TO_REPAIR = functions.addMinuteToTimestamp(TIMER_TO_REPAIR)
+
+      res.status(200).json({
+        status: 200,
+        data: {
+          time_to_fail: functions.addMinuteToTimestamp(TIMER_TO_FAIL,true),
+          time_to_repair: functions.addMinuteToTimestamp(TIMER_TO_REPAIR, true),
+          experiment_count: experimentCount
+        }
+      })
+
+      networkInterfaceIds.map((networkInterfaceId) =>
+        injectors.hardware(
+          req.body.ip,
+          req.body.sshPassword,
+          req.body.sshUsername,
+          TIME_TO_FAIL,
+          TIME_TO_REPAIR,
+          networkInterfaceId,
+        )
+      );
+
+    }
   }
 })
 
