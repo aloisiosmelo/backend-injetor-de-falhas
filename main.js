@@ -1,35 +1,31 @@
-const express = require('express')
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
 const bp = require("body-parser")
-const fs = require('fs')
 const cors = require('cors')
 const functions = require('./functions')
-const injectors = require('./injectors')
-const server = express()
-const R = require('r-integration');
 
-const allowedOrigins = ['http://localhost:3000'];
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-server.use(bp.json())
-server.use(bp.urlencoded({ extended: true }))
-server.listen(3030)
+app.use(bp.json())
+app.use(bp.urlencoded({ extended: true }))
+server.listen(3030, () => console.log('[info][START_SERVER] Server start at port 3030'))
 
-server.use(cors({
+app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin 
-    // (like mobile apps or curl requests)
     if (!origin) return callback(null, true); if (allowedOrigins.indexOf(origin) === -1) {
       var msg = 'The CORS policy for this site does not ' +
         'allow access from the specified Origin.';
       return callback(new Error(msg), false);
-    } 
-    
+    }
+
     return callback(null, true);
   }
 }));
 
-console.log('[info][START_SERVER] Server start at port 3030')
-
-server.get('/', (req, res) => {
+app.get('/', (req, res) => {
   if (!req?.body?.name) {
     return res.status(400).json({
       status: 'error',
@@ -42,114 +38,129 @@ server.get('/', (req, res) => {
   });
 })
 
-server.post('/api/injectors', async (req, res) => {
-  if (!req?.body?.injectionType) {
-    return res.status(400).json({
-      status: 'error',
-      error: 'injectionType cannot be empty',
-    });
-  }
+wss.on('connection', async (ws) => {
+  console.log('[info][WEBSOCKET_CONNECTION] Client connected via WebSocket');
 
-  if (req?.body?.timeToFail <= 0) {
-    return res.status(400).json({
-      status: 'error',
-      error: 'timeToFail cannot be less than or equal to zero',
-    });
-  }
+  ws.on('message', async (message) => {
+    const req = JSON.parse(message);
+    const { error } = await functions.validate(req)
+    var networkInterfaceId = req?.networkInterfaceId;
 
-  if (req?.body?.timeToRepair <= 0) {
-    return res.status(400).json({
-      status: 'error',
-      error: 'timeToRepair cannot be less than or equal to zero',
-    });
-  }
-
-  if (!req?.body?.autoDetectNetworkInterfaceId && (req?.body?.networkInterfaceId == '' || req?.body?.networkInterfaceId == undefined || req?.body?.networkInterfaceId == null)) {
-    return res.status(400).json({
-      status: 'error',
-      error: 'networkInterfaceId cannot be empty',
-    });
-  }
-
-  let networkInterfaceIds = [req?.body?.networkInterfaceId];
-
-  if (req?.body?.autoDetectNetworkInterfaceId) {
-    console.log('[info][START_SERVER] Trying to detect network interfaces')
-    let interfaceIndentifierResp = await functions.autoDetectNetworkInterfaceNames(req?.body?.sshUsername, req?.body?.sshPassword, req?.body?.ip);
-    if (interfaceIndentifierResp.status === 'success') {
-      networkInterfaceIds = interfaceIndentifierResp.data;
-    } else {
-      return res.status(500).json({
-        status: 'error',
-        error: 'failure to detect network interface',
-      });
+    if (error) {
+      ws.send(JSON.stringify({ status: 'error', message: error }));
+      return ws.close();
     }
-  }
 
-  if (req?.body?.injectionType === 'Hardware') {
+    let serverIsReady = await functions.pingLoop([req?.ip]);
 
-    const timeToFailRate = 1 / parseInt(req.body.timeToFail);
-    const timeToRepairRate = 1 / parseInt(req.body.timeToRepair);
+    if(!serverIsReady){
+      ws.send(JSON.stringify({ status: 'error', message: 'the server is not responding' }));
+      return ws.close();
+    }
+
+    if (req?.autoDetectNetworkInterfaceId) {
+      let detectHardwareInterfaceIdList = await functions.detectHardwareInterfaceId(req);
+      if (detectHardwareInterfaceIdList.length > 0) {
+        networkInterfaceId = detectHardwareInterfaceIdList[0];
+      } else {
+        ws.send(JSON.stringify({ status: 'error', message: 'can not detect hardware interface id' }));
+        return ws.close();
+      }
+    }
 
     let experimentCount = 0;
 
-    while (experimentCount < req.body.experimentAttempts) {
+    while (experimentCount < parseInt(req.experimentAttempts)) {
       experimentCount++;
 
-      let expFailHW = R.executeRCommand(`rexp(1, rate=${timeToFailRate})`);
-      let expRepairHW = R.executeRCommand(`rexp(1, rate=${timeToRepairRate})`);
+      const { timeToFail, timeToRepair } = await functions.generateTimers(req);
 
-      let TIMER_TO_FAIL = parseFloat(expFailHW[0]).toFixed(2);
-      let TIMER_TO_REPAIR = parseInt(expRepairHW[0]).toFixed(2);
-
-      if (isNaN(TIMER_TO_FAIL) || isNaN(TIMER_TO_REPAIR) || !TIMER_TO_FAIL || !TIMER_TO_REPAIR) {
-        functions.logMessage(`(${experimentCount}) Invalid time. Details: TIME=${TIMER_TO_FAIL} TIMER_TO_REPAIR=${TIMER_TO_REPAIR}`, 'ERROR', 'TIMER_TO_REPAIR_GEN_PARSE');
-        continue;
+      if (!timeToFail && !timeToRepair) {
+        ws.send(JSON.stringify({ status: 'error', message: 'cannot generate timers' }));
+        return ws.close();
       }
 
-      let TIME_TO_FAIL = functions.addMinuteToTimestamp(TIMER_TO_FAIL)
-      let TIME_TO_REPAIR = functions.addMinuteToTimestamp(TIMER_TO_REPAIR)
+      ws.send(JSON.stringify({
+        status: 'ok',
+        message: `[${experimentCount}] Time to failure`,
+      }));
 
-      res.status(200).json({
-        status: 200,
-        data: {
-          time_to_fail: functions.addMinuteToTimestamp(TIMER_TO_FAIL,true),
-          time_to_repair: functions.addMinuteToTimestamp(TIMER_TO_REPAIR, true),
-          experiment_count: experimentCount
-        }
-      })
+      ws.send(JSON.stringify({
+        status: 'ok',
+        message: `[${experimentCount}] ${functions.currentDateTimeFormated(functions.addMinuteToTimestamp(timeToFail,true))}`,
+      }));
 
-      networkInterfaceIds.map((networkInterfaceId) =>
-        injectors.hardware(
-          req.body.ip,
-          req.body.sshPassword,
-          req.body.sshUsername,
-          TIME_TO_FAIL,
-          TIME_TO_REPAIR,
-          networkInterfaceId,
-        )
-      );
+      let faultInjected = false;
+      let repairInjected = false;
 
+      const sshCommandForFault = `sshpass -p '${req.sshPassword}' ssh -tt ${req.sshUsername}@${req.ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at -t ${functions.addMinuteToTimestamp(timeToFail)} <<<"echo ${req.sshPassword} | sudo -S ip link set ${networkInterfaceId} down"'`;
+      const sshCommandForRepair = `sshpass -p '${req.sshPassword}' ssh -tt ${req.sshUsername}@${req.ip} -o StrictHostKeyChecking=no PasswordAuthentication=yes 'at -t ${functions.addMinuteToTimestamp(timeToRepair)} <<<"echo ${req.sshPassword} | sudo -S ip link set ${networkInterfaceId} up"'`;
+      
+      faultInjected = functions.runCommand(sshCommandForFault) ? true : false;
+      repairInjected = functions.runCommand(sshCommandForRepair) ? true : false;
+
+      if (faultInjected) {
+        ws.send(JSON.stringify({
+          status: 'ok',
+          message: `[${experimentCount}] Fault injected`,
+        }));
+      }
+
+      await functions.waitForATime(functions.addMinuteToTimestamp(timeToFail,true));
+
+      for (var i = 0; i < 9; i++) {
+        let pingStatus = await functions.pingLoop([req?.ip]);
+        ws.send(JSON.stringify({
+          status: 'ok',
+          message: `[${experimentCount}] ${functions.currentDateTimeFormated(false, true)} ${pingStatus ? 'up' : 'down'}`,
+        }));
+
+        await functions.waitForSeconds(5);
+      }
+      // end fault injection
+
+      ws.send(JSON.stringify({
+        status: 'ok',
+        message: `[${experimentCount}] Time to repair`,
+      }));
+
+      ws.send(JSON.stringify({
+        status: 'ok',
+        message: `[${experimentCount}] ${functions.currentDateTimeFormated(functions.addMinuteToTimestamp(timeToRepair,true))}`,
+      }));
+
+      if (repairInjected) {
+        ws.send(JSON.stringify({
+          status: 'ok',
+          message: `[${experimentCount}] Repair injected`,
+        }));
+      }
+
+      await functions.waitForATime(functions.addMinuteToTimestamp(timeToRepair,true));
+
+      for (var j = 0; j < 9; j++) {
+        let pingStatus = await functions.pingLoop([req?.ip]);
+        ws.send(JSON.stringify({
+          status: 'ok',
+          message: `[${experimentCount}] ${functions.currentDateTimeFormated(false, true)} ${pingStatus ? 'up' : 'down'}`,
+        }));
+
+        await functions.waitForSeconds(5);
+      }
+
+      console.log(`[${experimentCount}]: Finished inject script`)
     }
-  }
-})
+    return ws.close();
 
-server.get('/api/injectors/:log_id', function (req, res) {
-  if (!req?.params?.log_id) {
-    return res.status(400).json({
-      status: 'error',
-      error: 'log_id cannot be empty',
-    });
-  }
+  });
 
-  const filePath = `logs/${req.params.log_id}.json`;
-  const data = fs.readFileSync(filePath, 'utf8');
+  // Lidando com desconexões
+  ws.on('close', () => {
+    console.log('[info][WEBSOCKET_CONNECTION] Client disconnected via WebSocket');
+  });
+});
 
-  res.status(200).json(JSON.parse(data))
-
-})
-
-server.get('/api/ping/:ip', async (req, res) => {
+app.get('/api/ping/:ip', async (req, res) => {
   if (!req?.params?.ip) {
     return res.status(400).json({
       status: 'error',
